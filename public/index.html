@@ -2,10 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Meet</title>
+  <title>Zoom Clone - Create Meeting</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #meeting-link {
+      margin-top: 20px;
+      font-size: 14px;
+      word-wrap: break-word;
+    }
+  </style>
 </head>
 <body>
-  <h1>Welcome to meet</h1>
-  <a href="/room">Create Room</a>
+  <h1>Welcome to Zoom Clone</h1>
+  <p>Click below to create a meeting room.</p>
+  <button id="create-meet">Create Meeting</button>
+  <p id="meeting-link"></p>
+
+  <script>
+    document.getElementById('create-meet').addEventListener('click', async () => {
+      try {
+        const response = await fetch('/create');
+        const data = await response.json();
+        document.getElementById('meeting-link').innerHTML = `
+          Share this link with others: <br>
+          <a href="${data.link}" target="_blank">${data.link}</a>
+        `;
+      } catch (error) {
+        console.error('Error creating meeting:', error);
+      }
+    });
+  </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidV4 } = require('uuid');
 
+// Initialize Express and HTTP Server
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -12,43 +13,42 @@ const io = new Server(server, {
   },
 });
 
-// Serve static files
+// Serve Static Files
 app.use(express.static('public'));
 
-// Route to create a new room
-app.get('/room', (req, res) => {
-  const roomId = uuidV4(); // Generate unique room ID
-  res.redirect(`/${roomId}`);
+// Home Route
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
 });
 
-// Serve room page
+// Create Meeting Route
+app.get('/create', (req, res) => {
+  const roomId = uuidV4();
+  res.json({ link: `http://localhost:3001/${roomId}` });
+});
+
+// Room Route
 app.get('/:room', (req, res) => {
   res.sendFile(__dirname + '/public/room.html');
 });
 
-// Socket.io logic
+// Socket.IO Logic
 io.on('connection', (socket) => {
   socket.on('join-room', (roomId, userId) => {
     socket.join(roomId);
+    console.log(`User ${userId} joined room ${roomId}`);
 
-    // Identify Host
-    const clients = io.sockets.adapter.rooms.get(roomId);
-    const isHost = clients.size === 1; // First user is the host
-
-    // Notify the user of their host status
-    socket.emit('host-status', isHost);
-
-    // Notify others about the new user
     socket.to(roomId).emit('user-connected', userId);
 
-    // Handle disconnection
     socket.on('disconnect', () => {
+      console.log(`User ${userId} disconnected from room ${roomId}`);
       socket.to(roomId).emit('user-disconnected', userId);
     });
   });
 });
 
-// Start server
-server.listen(3001, () => {
-  console.log('Server running on http://localhost:3001');
+// Start Server
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
 });
