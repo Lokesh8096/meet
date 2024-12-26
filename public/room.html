@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Room</title>
+  <title>Zoom Clone Room</title>
   <style>
     #video-grid {
       display: grid;
@@ -13,16 +13,22 @@
       width: 100%;
       height: auto;
     }
+    .host-controls {
+      margin-top: 20px;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>Meet Room</h1>
-  <p id="room-link"></p>
+  <h1>Zoom Clone Room</h1>
+  <p id="room-link" class="host-controls"></p>
   <div id="video-grid"></div>
-  <button id="start-recording">Start Recording</button>
-  <button id="stop-recording">Stop Recording</button>
+  
+  <div class="host-controls">
+    <button id="start-recording">Start Recording</button>
+    <button id="stop-recording">Stop Recording</button>
+  </div>
 
-  <!-- Correct PeerJS Library -->
   <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -37,11 +43,7 @@
       path: '/'
     });
 
-    // Display the room link
-    const roomId = window.location.pathname.split('/')[1];
-    document.getElementById('room-link').innerHTML = `
-      Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a>
-    `;
+    let isHost = false;
 
     navigator.mediaDevices.getUserMedia({
       video: true,
@@ -59,6 +61,23 @@
 
       socket.on('user-connected', (userId) => {
         connectToNewUser(userId, stream);
+      });
+
+      // Host controls visibility
+      socket.on('host-status', (host) => {
+        isHost = host;
+        if (isHost) {
+          document.querySelectorAll('.host-controls').forEach(ctrl => {
+            ctrl.style.display = 'block';
+          });
+          document.getElementById('room-link').innerHTML = `
+            Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a>
+          `;
+        } else {
+          document.querySelectorAll('.host-controls').forEach(ctrl => {
+            ctrl.style.display = 'none';
+          });
+        }
       });
 
       // Recording
@@ -87,6 +106,7 @@
     });
 
     myPeer.on('open', (id) => {
+      const roomId = window.location.pathname.split('/')[1];
       socket.emit('join-room', roomId, id);
     });
 
