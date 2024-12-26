@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Room</title>
+  <style>
+    #video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+    video {
+      width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Meet Room</h1>
+  <p id="room-link"></p>
+  <div id="video-grid"></div>
+  <button id="start-recording">Start Recording</button>
+  <button id="stop-recording">Stop Recording</button>
+
+  <!-- Correct PeerJS Library -->
+  <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('/');
+    const videoGrid = document.getElementById('video-grid');
+    const myVideo = document.createElement('video');
+    myVideo.muted = true;
+
+    const myPeer = new Peer(undefined, {
+      host: '/',
+      port: 3002,
+      path: '/'
+    });
+
+    // Display the room link
+    const roomId = window.location.pathname.split('/')[1];
+    document.getElementById('room-link').innerHTML = `
+      Share this link: <a href="${window.location.href}" target="_blank">${window.location.href}</a>
+    `;
+
+    navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    }).then((stream) => {
+      addVideoStream(myVideo, stream);
+
+      myPeer.on('call', (call) => {
+        call.answer(stream);
+        const video = document.createElement('video');
+        call.on('stream', (userVideoStream) => {
+          addVideoStream(video, userVideoStream);
+        });
+      });
+
+      socket.on('user-connected', (userId) => {
+        connectToNewUser(userId, stream);
+      });
+
+      // Recording
+      let mediaRecorder;
+      const recordedChunks = [];
+      document.getElementById('start-recording').onclick = () => {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        mediaRecorder.start();
+        mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+      };
+      document.getElementById('stop-recording').onclick = () => {
+        mediaRecorder.stop();
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'recording.webm';
+          a.click();
+        };
+      };
+    });
+
+    socket.on('user-disconnected', (userId) => {
+      console.log(`User ${userId} disconnected`);
+    });
+
+    myPeer.on('open', (id) => {
+      socket.emit('join-room', roomId, id);
+    });
+
+    function connectToNewUser(userId, stream) {
+      const call = myPeer.call(userId, stream);
+      const video = document.createElement('video');
+      call.on('stream', (userVideoStream) => {
+        addVideoStream(video, userVideoStream);
+      });
+    }
+
+    function addVideoStream(video, stream) {
+      video.srcObject = stream;
+      video.addEventListener('loadedmetadata', () => video.play());
+      videoGrid.append(video);
+    }
+  </script>
+</body>
+</html>
